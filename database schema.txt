@@ -1,0 +1,40 @@
+user:
+	number
+	email
+	password
+	pnr
+	uuid
+	complaint_1
+
+
+train manager:
+	train name
+	train number
+	department [docs]
+	pending complaints [list] ---> complaints_1, complaints_2, complaint_3.
+
+
+
+department:
+	medical:
+		head: number
+		name: harish
+	water:
+		head: number
+		name: suii
+
+
+complaint_1:
+	complaint_id: uuid[6]
+	type:
+	department:
+	status:
+	reported_by:
+	pnr:
+	train_manager:
+	description(if any):
+
+log:
+all complaints
+
+
