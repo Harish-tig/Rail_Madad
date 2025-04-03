@@ -12,7 +12,7 @@ database_name = "Rail_madad"
 passenger_collection = "user_passenger"
 complaints_collection = "complaints"
 pnr_collection = "pnr"
-train_manager_collection = "train_manager"
+journey_collection = "journey"
 user_idgen = lambda: uuid4().hex[:12]
 
 
@@ -38,7 +38,7 @@ def register(request):
             return JsonResponse({"error": "Missing required fields"}, status=400)
 
         passenger_data = {
-            "userid": user_idgen(),
+            "user_id": user_idgen(),
             "username": request.data.get('username'),
             "email": request.data.get("email"),
             "password": make_password(password=request.data.get("password"),hasher="default"),
@@ -87,31 +87,28 @@ def login(request):
 def verify(request):
     return HttpResponse("verify")
 
-from rest_framework.decorators import api_view
-from django.http import JsonResponse
-from pymongo import MongoClient
 
 @api_view(['POST'])
 def raise_complaint(request):
     try:
         pnr = request.data.get("pnr")
         email = request.data.get("email")
-        type = request.data.get("type")
-        description = request.data.get("description")
+        complaint_type = request.data.get("complaint_type")
+        complaint_description = request.data.get("complaint_description")
 
-        if not all([pnr, email, type, description]):  # Ensure all fields exist
+        if not all([pnr, email, complaint_type, complaint_description]):  # Ensure all fields exist
             return JsonResponse({"error": "Missing required fields"}, status=400)
 
         db = connection()
-        pass_collection = db.get_collection(passenger_collection)
+        Passenger_collection = db.get_collection(passenger_collection)
         Pnr_collection = db.get_collection(pnr_collection)
-        comp_collection = db.get_collection(complaints_collection)
-        train_manager  = db.get_collection(train_manager_collection)
+        Complaint_collection = db.get_collection(complaints_collection)
+        Journey_collection  = db.get_collection(journey_collection)
 
 
 
         # Fetch user data
-        user_data = pass_collection.find_one({"email": email})
+        user_data = Passenger_collection.find_one({"email": email})
         if not user_data:
             return JsonResponse({"error": "User not found"}, status=404)
 
@@ -119,44 +116,43 @@ def raise_complaint(request):
         pnr_data = Pnr_collection.find_one({"Pnr": pnr})
         if not pnr_data:
             return JsonResponse({"error": "PNR not found"}, status=404)
-
         train_number = str(pnr_data.get("TrainNo"))
-        train_manager_data = train_manager.find_one({"train_number": train_number})
 
-        if not train_manager_data:
+        current_train_manager_data = Journey_collection.find_one({"train_number": train_number})
+        if not current_train_manager_data:
             return JsonResponse({"error": "Train manager not found"}, status=404)
 
-        manager_name = train_manager_data.get("manager_name")
-        manager_id = train_manager_data.get("manager_id")
+        manager_name = current_train_manager_data.get("train_manager_name")
+        manager_id = current_train_manager_data.get("manager_id")
+        manager_number = current_train_manager_data.get("train_manager_number")
 
         complaint_data = {
             "complaint_id": user_idgen()[:6],
             "train_number": str(train_number),
             "reported_by": {
                 "username": user_data.get("username"),
-                "userid": user_data.get("userid"),  # Fix: It should be userid, not username
+                "user_id": user_data.get("user_id"),  # Fix: It should be userid, not username
                 "pnr": str(pnr)
             },
             "train_manager": {
                 "name": manager_name,
                 "manager_id": manager_id,
             },
-            "type": type,  # security, emergency, cleanliness, overcrowding, others
-            "description": description,
+            "complaint_type": complaint_type,  # security, emergency, cleanliness, overcrowding, others
+            "complaint_description": complaint_description,
             "status": "reported"  # Default status
         }
 
         # Insert into MongoDB
         try:
-            comp_collection.insert_one(complaint_data)
-            pass_collection.update_one({"email": email}, {"$push": {"complaint_raised": complaint_data["complaint_id"]}})
+            Complaint_collection.insert_one(complaint_data)
+            Passenger_collection.update_one({"email": email}, {"$push": {"complaint_raised":{"complaint_id": complaint_data["complaint_id"],"complaint_type":complaint_type, "status": complaint_data['status'],"manager_number":manager_number}}})
+            Journey_collection.update_one({"train_number":str(train_number)},{"$push": {"complaints": {"compliant_id": complaint_data["complaint_id"],"complaint_type":complaint_type, "status": complaint_data['status']}}})
             db.client.close()
             return JsonResponse({"status": "Complaint raised successfully"}, status=201)
         except Exception as e:
             db.client.close()
             return JsonResponse({"error": "Internal Server Error", "details": str(e)}, status=500)
-
-
 
     except Exception as e:
         return JsonResponse({"error": "Internal Server Error", "details": str(e)}, status=500)
