@@ -13,6 +13,7 @@ passenger_collection = "user_passenger"
 complaints_collection = "complaints"
 pnr_collection = "pnr"
 journey_collection = "journey"
+train_manager_collection = "journey"
 user_idgen = lambda: uuid4().hex[:12]
 
 
@@ -67,14 +68,14 @@ def login(request):
         # username = request.data.get("username")
         usermail = request.data.get("email")
         password = request.data.get("password")
-        temp = collection.find_one({"email": usermail},{"_id":0,"username":1,"password":1})
+        temp = collection.find_one({"email": usermail},{"_id":0,"username":1,"password":1,"userid":1})
         if usermail == "admin@gmail.com" and password == "1234":
             db.client.close()
             return JsonResponse({"message": "dummy Login successful", "status": "success","pass":password})
         elif temp:
             if check_password(password,temp.get("password")):
                 db.client.close()
-                return JsonResponse({"message": f"{temp.get('username')}'s Login successful", "status": "success"})
+                return JsonResponse({"message": f"{temp.get('username')}'s Login successful", "status": "success","user_id":temp.get('userid')})
             else:
                 return JsonResponse({"message": f"{temp.get('username')}'s Login failed", "status": "wrong credentials"})
         else:
