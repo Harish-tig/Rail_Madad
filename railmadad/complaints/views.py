@@ -31,15 +31,15 @@ def get_user_all_complaints(request):
         )
     
     # Find all complaints for the user
-    complaints = complaints_collection.find({'reported_by.userid': user_id})
+    complaints = complaints_collection.find({'reported_by.user_id': user_id})
     
     # Format the response with only required fields
     result = []
     for complaint in complaints:
         result.append({
             'complaint_id': complaint['complaint_id'],
-            'type': complaint['type'],
-            'description': complaint['description'],
+            'complaint_type': complaint['complaint_type'],
+            'complaint_description': complaint['complaint_description'],
             'status': complaint['status']
         })
     
