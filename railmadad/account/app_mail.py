@@ -45,3 +45,46 @@ Code Harmonics Team
     except Exception as e:
         print(f"❌ Error sending email: {e}")
         return e
+
+
+def raise_complaint_mail(receivers_email):
+    try:
+        # Get email credentials from .env
+        email_host = os.getenv("MAIL_SERVER")
+        email_port = int(os.getenv("MAIL_PORT"))
+        email_user = os.getenv("MAIL_USERNAME")
+        email_pass = os.getenv("MAIL_PASSWORD")
+
+        # Setup email
+        msg = MIMEMultipart()
+        msg["From"] = email_user
+        msg["To"] = f"{receivers_email}"
+        msg["Subject"] = "Your complaint has reached us"
+        body = """
+        Dear User,
+
+We have successfully received your complaint regarding IRCTC rail services. Thank you for taking the time to share your concern with us.
+
+Our team is currently reviewing your complaint and will take the necessary steps to ensure it is addressed promptly. You can track the status of your complaint anytime through the app.
+
+🔹 Please Note: This is a no-reply email. If you have additional information to provide, kindly use the complaint section in the app to update your submission.
+
+Your feedback is valuable in helping us improve the quality of service.
+
+Best regards,  
+Code Harmonics Team
+
+        """
+
+        msg.attach(MIMEText(body, "plain"))
+
+        # Connect to SMTP Server and send email
+        server = smtplib.SMTP(email_host, email_port)
+        server.starttls()
+        server.login(email_user, email_pass)
+        server.sendmail(email_user, receivers_email, msg.as_string())
+        server.quit()
+        print("✅ Email sent successfully!")
+    except Exception as e:
+        print(f"❌ Error sending email: {e}")
+        return e

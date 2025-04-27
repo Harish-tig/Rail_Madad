@@ -1,11 +1,18 @@
 import os
+import jwt
+from datetime import datetime, timedelta, timezone
+from django.conf import settings
 
 from django.http import JsonResponse, HttpResponse
 from rest_framework.decorators import api_view
 from django.contrib.auth.hashers import make_password, check_password
 from pymongo import MongoClient
 from uuid import uuid4
-from .app_mail import register_email
+from .app_mail import register_email, raise_complaint_mail
+from rest_framework_simplejwt.tokens import RefreshToken
+from django.http import JsonResponse
+from .utils import decoder
+
 
 
 database_name = "Rail_madad"
@@ -58,29 +65,59 @@ def register(request):
         return JsonResponse({"status": "registeration successfull!"},status= 201)
 
 
-#using dummy login as of now.
 @api_view(['POST'])
 def login(request):
     db = connection()
     collection = db.get_collection(passenger_collection)
+
     if request.method == "POST":
-        # uuid = request.data.get("userid") #TODO to add uuid
-        # username = request.data.get("username")
         usermail = request.data.get("email")
         password = request.data.get("password")
-        temp = collection.find_one({"email": usermail},{"_id":0,"username":1,"password":1,"userid":1})
+
+        temp = collection.find_one({"email": usermail}, {"_id": 0, "username": 1, "password": 1, "user_id": 1})
+
         if usermail == "admin@gmail.com" and password == "1234":
             db.client.close()
-            return JsonResponse({"message": "dummy Login successful", "status": "success","pass":password})
+            return JsonResponse({"message": "dummy Login successful", "status": "success", "pass": password})
+
         elif temp:
-            if check_password(password,temp.get("password")):
+            if check_password(password, temp.get("password")):
+                user_id = temp.get("user_id")
+                username = temp.get("username")
+
+                #Create access and refresh tokens manually
+                access_payload = {
+                    'user_id': user_id,
+                    'email': usermail,
+                    'username': username,
+                    'exp': datetime.now(timezone.utc) + timedelta(minutes=15),  # access token expires in 15 mins
+                    'iat': datetime.now(timezone.utc)
+                }
+                access_token = jwt.encode(access_payload, settings.SECRET_KEY, algorithm='HS256')
+
+                refresh_payload = {
+                    'user_id': user_id,
+                    'email': usermail,
+                    'exp': datetime.now(timezone.utc) + timedelta(days=7),  # refresh token expires in 7 days
+                    'iat': datetime.now(timezone.utc)
+                }
+                refresh_token = jwt.encode(refresh_payload, settings.SECRET_KEY, algorithm='HS256')
+
                 db.client.close()
-                return JsonResponse({"message": f"{temp.get('username')}'s Login successful", "status": "success","user_id":temp.get('userid')})
+                return JsonResponse({
+                    "message": f"{username}'s Login successful",
+                    "status": "success",
+                    "user_id": user_id,
+                    "access": access_token,
+                    "refresh": refresh_token
+                })
             else:
-                return JsonResponse({"message": f"{temp.get('username')}'s Login failed", "status": "wrong credentials"})
+                return JsonResponse(
+                    {"message": f"{temp.get('username')}'s Login failed", "status": "wrong credentials"})
         else:
             db.client.close()
             return JsonResponse({"message": "Invalid credentials", "status": "error"}, status=400)
+
     db.client.close()
     return JsonResponse({"error": "Invalid request method"}, status=405)
 
@@ -88,28 +125,29 @@ def login(request):
 def verify(request):
     return HttpResponse("verify")
 
-
 @api_view(['POST'])
 def raise_complaint(request):
+
+    decoded = decoder(request)
+    user_email_from_token = decoded.get('email')
+    user_id_from_token = decoded.get('user_id')
+
     try:
         pnr = request.data.get("pnr")
-        email = request.data.get("email")
         complaint_type = request.data.get("complaint_type")
         complaint_description = request.data.get("complaint_description")
 
-        if not all([pnr, email, complaint_type, complaint_description]):  # Ensure all fields exist
+        if not all([pnr, complaint_type, complaint_description]):
             return JsonResponse({"error": "Missing required fields"}, status=400)
 
         db = connection()
         Passenger_collection = db.get_collection(passenger_collection)
         Pnr_collection = db.get_collection(pnr_collection)
         Complaint_collection = db.get_collection(complaints_collection)
-        Journey_collection  = db.get_collection(journey_collection)
+        Journey_collection = db.get_collection(journey_collection)
 
-
-
-        # Fetch user data
-        user_data = Passenger_collection.find_one({"email": email})
+        # Fetch user data using email from token
+        user_data = Passenger_collection.find_one({"email": user_email_from_token})
         if not user_data:
             return JsonResponse({"error": "User not found"}, status=404)
 
@@ -117,8 +155,10 @@ def raise_complaint(request):
         pnr_data = Pnr_collection.find_one({"Pnr": pnr})
         if not pnr_data:
             return JsonResponse({"error": "PNR not found"}, status=404)
+
         train_number = str(pnr_data.get("TrainNo"))
 
+        # Fetch train manager data
         current_train_manager_data = Journey_collection.find_one({"train_number": train_number})
         if not current_train_manager_data:
             return JsonResponse({"error": "Train manager not found"}, status=404)
@@ -127,35 +167,55 @@ def raise_complaint(request):
         manager_id = current_train_manager_data.get("manager_id")
         manager_number = current_train_manager_data.get("train_manager_number")
 
+        # Create complaint
         complaint_data = {
             "complaint_id": user_idgen()[:6],
-            "train_number": str(train_number),
+            "train_number": train_number,
             "reported_by": {
                 "username": user_data.get("username"),
-                "user_id": user_data.get("userid"),  # Fix: It should be userid, not username
-                "pnr": str(pnr)
+                "user_id": user_data.get("user_id"),
+                "pnr": pnr
             },
             "train_manager": {
                 "name": manager_name,
                 "manager_id": manager_id,
             },
-            "complaint_type": complaint_type,  # security, emergency, cleanliness, overcrowding, others
+            "complaint_type": complaint_type,
             "complaint_description": complaint_description,
-            "status": "reported"  # Default status
+            "status": "reported"
         }
 
-        # Insert into MongoDB
         try:
             Complaint_collection.insert_one(complaint_data)
-            Passenger_collection.update_one({"email": email}, {"$push": {"complaint_raised":{"complaint_id": complaint_data["complaint_id"],"complaint_type":complaint_type, "status": complaint_data['status'],"manager_number":manager_number}}})
-            Journey_collection.update_one({"train_number":str(train_number)},{"$push": {"complaints": {"compliant_id": complaint_data["complaint_id"],"complaint_type":complaint_type, "status": complaint_data['status']}}})
+            Passenger_collection.update_one(
+                {"email": user_email_from_token},
+                {"$push": {
+                    "complaint_raised": {
+                        "complaint_id": complaint_data["complaint_id"],
+                        "complaint_type": complaint_type,
+                        "status": complaint_data['status'],
+                        "manager_number": manager_number
+                    }
+                }}
+            )
+            Journey_collection.update_one(
+                {"train_number": train_number},
+                {"$push": {
+                    "complaints": {
+                        "complaint_id": complaint_data["complaint_id"],
+                        "complaint_type": complaint_type,
+                        "status": complaint_data['status']
+                    }
+                }}
+            )
+
+            raise_complaint_mail(user_email_from_token)
             db.client.close()
             return JsonResponse({"status": "Complaint raised successfully"}, status=201)
+
         except Exception as e:
             db.client.close()
             return JsonResponse({"error": "Internal Server Error", "details": str(e)}, status=500)
 
     except Exception as e:
         return JsonResponse({"error": "Internal Server Error", "details": str(e)}, status=500)
-
-

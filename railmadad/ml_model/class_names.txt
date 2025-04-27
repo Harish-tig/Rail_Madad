@@ -1,0 +1,10 @@
+Overcrowding
+clean coach
+defective switch
+fire smoke
+medical assist
+non defective switch
+normal
+trackdefective
+tracknotdefective
+unclean_coach

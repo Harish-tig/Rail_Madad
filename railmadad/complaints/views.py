@@ -11,7 +11,7 @@ client = MongoClient('localhost', 27017)
 db = client['Rail_madad']
 complaints_collection = db['complaints']
 users_collection = db['user_passenger']
-journeys_collection = db['journeys']  # Assuming you have a journeys collection
+journeys_collection = db['journey']  # Assuming you have a journeys collection
 
 @api_view(['GET'])
 def get_user_all_complaints(request):
@@ -24,7 +24,7 @@ def get_user_all_complaints(request):
         )
     
     # Check if user exists
-    user = users_collection.find_one({'userid': user_id})
+    user = users_collection.find_one({'user_id': user_id})
     if not user:
         return Response(
             {"error": "User not found"}, 
@@ -57,12 +57,12 @@ def get_user_journey_details(request):
         )
     
     # Check if user exists
-    user = users_collection.find_one({'userid': train_number})
-    if not user:
-        return Response(
-            {"error": "User not found"}, 
-            status=status.HTTP_404_NOT_FOUND
-        )
+    # user = users_collection.find_one({'userid': train_number})
+    # if not user:
+    #     return Response(
+    #         {"error": "User not found"},
+    #         status=status.HTTP_404_NOT_FOUND
+    #     )
     
     # Find the user's current journey (you might need to adjust this query based on your schema)
     journey = journeys_collection.find_one({'train_number': train_number})
@@ -82,8 +82,7 @@ def get_user_journey_details(request):
         "train_manager_number": journey.get('train_manager_number', ''),
         "manager_id": journey.get('manager_id', ''),
         "department_details": journey.get('department_details', {}),
-        "complaints": list(complaints_collection.find(
-            {'reported_by.train_number': train_number},
+        "complaints": list(complaints_collection.find({},
             {'complaint_id': 1, 'complaint_type': 1, 'status': 1, '_id': 0}
         ))
     }
