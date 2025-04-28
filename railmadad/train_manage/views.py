@@ -80,7 +80,7 @@ def login(request):
                     'manager_id': temp.get("manager_id"),
                     'email': usermail,
                     'username': username,
-                    'exp': datetime.now(timezone.utc) + timedelta(minutes=15),  # access token expires in 15 mins
+                    'exp': datetime.now(timezone.utc) + timedelta(minutes=120),  # access token expires in 15 mins
                     'iat': datetime.now(timezone.utc)
                 }
                 access_token = jwt.encode(access_payload, settings.SECRET_KEY, algorithm='HS256')
@@ -99,7 +99,7 @@ def login(request):
                     "status": "success",
                     "user_id": user_id,
                     "access": access_token,
-                    "refresh": refresh_token
+                    # "refresh": refresh_token
                 })
 
             else:
