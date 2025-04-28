@@ -12,6 +12,7 @@ from django.http import JsonResponse
 from datetime import datetime, timezone, timedelta
 import jwt
 from django.conf import settings
+from pymongo.server_api import ServerApi
 
 database_name = "Rail_madad"
 manager_collection = "user_manager"
@@ -21,7 +22,7 @@ passenger_collection = "user_passenger"
 user_idgen = lambda: uuid4().hex[:12]
 
 def connection():
-    client = MongoClient(os.getenv("HOST"))
+    client = MongoClient(os.getenv("ATLAS"),server_api=ServerApi('1'))
     db = client.get_database(f'{database_name}')
     return db
 

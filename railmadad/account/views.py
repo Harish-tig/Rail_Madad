@@ -2,11 +2,11 @@ import os
 import jwt
 from datetime import datetime, timedelta, timezone
 from django.conf import settings
-
 from django.http import JsonResponse, HttpResponse
 from rest_framework.decorators import api_view
 from django.contrib.auth.hashers import make_password, check_password
 from pymongo import MongoClient
+from pymongo.server_api import ServerApi
 from uuid import uuid4
 from .app_mail import register_email, raise_complaint_mail
 from rest_framework_simplejwt.tokens import RefreshToken
@@ -29,7 +29,7 @@ def home(request):
 
 
 def connection():
-    client = MongoClient(os.getenv("HOST"))
+    client = MongoClient(os.getenv("ATLAS"),server_api=ServerApi('1'))
     db = client.get_database(f'{database_name}')
     return db
 
