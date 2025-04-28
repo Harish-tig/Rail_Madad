@@ -30,6 +30,7 @@ complaint_1:
 	department:
 	status:
 	reported_by:
+	image: (if any)
 	pnr:
 	train_manager:
 	description(if any):

@@ -22,7 +22,8 @@ passenger_collection = "user_passenger"
 user_idgen = lambda: uuid4().hex[:12]
 
 def connection():
-    client = MongoClient(os.getenv("ATLAS"),server_api=ServerApi('1'))
+    # client = MongoClient(os.getenv("ATLAS"),server_api=ServerApi('1'))
+    client = MongoClient(os.getenv("HOST"))
     db = client.get_database(f'{database_name}')
     return db
 
