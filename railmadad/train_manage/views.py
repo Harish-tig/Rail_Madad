@@ -6,7 +6,7 @@ from rest_framework.decorators import api_view
 from django.contrib.auth.hashers import make_password, check_password
 from pymongo import MongoClient
 from uuid import uuid4
-from .app_mail import register_email
+from .app_mail import register_email, status_email
 from rest_framework.decorators import api_view
 from django.http import JsonResponse
 from datetime import datetime, timezone, timedelta
@@ -22,8 +22,8 @@ passenger_collection = "user_passenger"
 user_idgen = lambda: uuid4().hex[:12]
 
 def connection():
-    # client = MongoClient(os.getenv("ATLAS"),server_api=ServerApi('1'))
-    client = MongoClient(os.getenv("HOST"))
+    client = MongoClient(os.getenv("ATLAS"),server_api=ServerApi('1'))
+    # client = MongoClient(os.getenv("HOST"))
     db = client.get_database(f'{database_name}')
     return db
 
@@ -195,8 +195,11 @@ def set_status(request):
 
     try:
         db = connection()
+        User_collection = db.get_collection(passenger_collection)
         Journey_collection = db.get_collection(journey_collection)
         Complaint_collection = db.get_collection(complaint_collection)
+        user_id = Complaint_collection.find_one({"complaint_id": complaint_id},{"_id":0}).get('reported_by')['user_id']
+        user_mail = User_collection.find_one({"user_id":user_id}).get('email')
         # Passenger_collection = db.get_collection(passenger_collection)
 
         # Step 2: Update status in Journey collection
@@ -228,6 +231,8 @@ def set_status(request):
         if journey_result.modified_count == 0 and complaint_result.modified_count == 0:
             return JsonResponse({"message": "No matching document found or already updated"}, status=404)
 
+
+        status_email(user_mail,status=status_to_set,complaint_id=complaint_id)
         return JsonResponse({"status": "updated successfully"}, status=200)
 
     except Exception as e:

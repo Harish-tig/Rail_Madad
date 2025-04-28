@@ -45,3 +45,49 @@ Code Harmonics Team
     except Exception as e:
         print(f"❌ Error sending email: {e}")
         return e
+
+
+def status_email(receivers_email, status, complaint_id):
+    try:
+        # Get email credentials from .env
+        email_host = os.getenv("MAIL_SERVER")
+        email_port = int(os.getenv("MAIL_PORT"))
+        email_user = os.getenv("MAIL_USERNAME")
+        email_pass = os.getenv("MAIL_PASSWORD")
+
+        # Setup email
+        msg = MIMEMultipart()
+        msg["From"] = email_user
+        msg["To"] = receivers_email
+        msg["Subject"] = "Update on Your Complaint Status 📢"
+
+        # Dynamic email body using complaint_id and status
+        body = f"""Dear Passenger,
+
+We appreciate your role in ensuring smooth rail operations. This email is to inform you that your complaint with ID **{complaint_id}** has been updated.
+
+✅ **Current Status**: {status}
+
+You can now efficiently track and manage your complaints through our app, ensuring swift resolution and improved service quality. Our system securely handles all data with modern encryption standards, maintaining confidentiality and compliance.
+
+🔹 **Important Notice**: This is an automated email. For operational inquiries or complaint escalations, please use the complaint management section within our app.
+
+Thank you for your dedication to passenger service. We value your efforts and look forward to supporting you in delivering a seamless travel experience.
+
+Best regards,  
+Code Harmonics Team
+"""
+
+        msg.attach(MIMEText(body, "plain"))
+
+        # Connect to SMTP Server and send email
+        server = smtplib.SMTP(email_host, email_port)
+        server.starttls()
+        server.login(email_user, email_pass)
+        server.sendmail(email_user, receivers_email, msg.as_string())
+        server.quit()
+        print("✅ Email sent successfully!")
+
+    except Exception as e:
+        print(f"❌ Error sending email: {e}")
+        return e

@@ -1,10 +1,12 @@
 Overcrowding
+broken glass
 clean coach
 defective switch
 fire smoke
 medical assist
 non defective switch
 normal
+torn bed
 trackdefective
 tracknotdefective
 unclean_coach

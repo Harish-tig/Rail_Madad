@@ -33,8 +33,8 @@ def home(request):
 
 
 def connection():
-    # client = MongoClient(os.getenv("ATLAS"),server_api=ServerApi('1'))
-    client = MongoClient(os.getenv("HOST"))
+    client = MongoClient(os.getenv("ATLAS"),server_api=ServerApi('1'))
+    # client = MongoClient(os.getenv("HOST"))
     db = client.get_database(f'{database_name}')
     return db
 
@@ -258,8 +258,9 @@ def predict_complaint(request):
         "Medical": ["medical assist"],
         "Cleanliness": ["unclean_coach"],
         "Electrical": ["defective switch"],
-        "General": ["overcrowding"],
+        "General": ["overcrowding", "broken glass"],
         "Not a Complaint": ["tracknotdefective", "clean coach", "normal", "non defective switch"],
+        "Coach Maintenance": ["torn bed"]
     }
 
     def general_output(predicted_class):
